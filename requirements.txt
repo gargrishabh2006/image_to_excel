@@ -1,0 +1,10 @@
+﻿streamlit
+pandas
+openpyxl
+python-dotenv
+torch
+transformers
+accelerate
+huggingface_hub
+paddlepaddle==3.0.0
+paddleocr

@@ -1,0 +1,14 @@
+ocr:
+  detection_model: PP-OCRv5_server_det
+  recognition_model: PP-OCRv5_server_rec
+  use_doc_orientation_classify: true
+  use_doc_unwarping: true
+  use_textline_orientation: true
+
+llm:
+  model_id: meta-llama/Llama-3.2-3B-Instruct
+  dtype: bfloat16        # bfloat16 / float16 / float32
+  device_map: auto
+  max_new_tokens: 256
+excel:
+  output_file: output.xlsx
