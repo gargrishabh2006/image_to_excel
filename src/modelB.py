@@ -22,6 +22,30 @@ from transformers import pipeline
 from src.config import load_config
 load_dotenv()
 
+import os
+import logging
+
+log_dir = "logs"
+os.makedirs(log_dir, exist_ok=True)
+
+logger=logging.getLogger("model B")
+logger.setLevel("DEBUG")
+
+console_handler=logging.StreamHandler()
+console_handler.setLevel("DEBUG")
+
+log_file_path=os.path.join(log_dir,"modelB.log")
+file_handler=logging.FileHandler(log_file_path)
+file_handler.setLevel("DEBUG")
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+
 MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"
 
 _pipe = None  # loaded once, reused for every bill
@@ -68,20 +92,25 @@ IMPORTANT RULES:
 
 
 def load_llm():
-    global _pipe
-    if _pipe is None:
-        cfg = load_config()["llm"]
-        token = os.environ.get("HF_TOKEN")
-        if token:
-            login(token=token)
-        _pipe = pipeline(
-            "text-generation",
-            model=cfg["model_id"],
-            dtype=getattr(torch, cfg["dtype"]),
-            device_map=cfg["device_map"],
-        )
-    return _pipe
- 
+    try:
+        global _pipe
+        if _pipe is None:
+            cfg = load_config()["llm"]
+            token = os.environ.get("HF_TOKEN")
+            if token:
+                login(token=token)
+            _pipe = pipeline(
+                "text-generation",
+                model=cfg["model_id"],
+                dtype=getattr(torch, cfg["dtype"]),
+                device_map=cfg["device_map"],
+            )
+        logger.debug("MODEL B successfully loaded")
+        return _pipe
+    
+    except Exception as e:
+        logger.error("model b llm loading failed: %s",e)
+    
  
 
 
@@ -104,23 +133,29 @@ def extract_fields(ocr_text, fields, max_new_tokens=256):
     fields   : list of column names the user wants, e.g. ["Qty", "Total", "Bill To"]
     returns  : dict with exactly those keys (missing ones are None)
     """
-    pipe = load_llm()
+    try:
+        logger.debug("model b input send started")
+        pipe = load_llm()
 
-    user_prompt = f"""
-        Fields to extract:
-        {', '.join(fields)}
+        user_prompt = f"""
+            Fields to extract:
+            {', '.join(fields)}
 
-        OCR DATA WITH POSITIONS:
-        {ocr_text}
-        """
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ]
+            OCR DATA WITH POSITIONS:
+            {ocr_text}
+            """
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
 
-    outputs = pipe(messages, max_new_tokens=max_new_tokens)
-    raw = outputs[0]["generated_text"][-1]["content"]
+        outputs = pipe(messages, max_new_tokens=max_new_tokens)
+        raw = outputs[0]["generated_text"][-1]["content"]
 
-    parsed = _parse_dict(raw)
-    # keep only requested fields, in the user's order
-    return {field: parsed.get(field) for field in fields}
+        parsed = _parse_dict(raw)
+        # keep only requested fields, in the user's order
+        logger.debug("model B output recived")
+        return {field: parsed.get(field) for field in fields}
+    
+    except  Exception as e:
+        logger.error("model B final output failed %s",e)
